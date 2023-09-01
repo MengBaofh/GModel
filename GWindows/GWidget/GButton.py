@@ -144,6 +144,7 @@ class GNNsButton(CustomButton):
 
     @staticmethod
     def train_val_test(data, ini_points):
+        # 没用的一段代码，忘删了...
         # 划分数据集
         num_of_point = len(ini_points)
         upper_sample1 = []  # 阴
