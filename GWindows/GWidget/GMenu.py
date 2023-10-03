@@ -1,8 +1,11 @@
 import pandas as pd
 from tkinter import *
 from tkinter.messagebox import showinfo, showerror
+
+from matplotlib import pyplot as plt
+
 from GWindows.GWidget.publicMember import PublicMember
-from GWindows.GWidget.GTopLevel import GraphSliderTop
+from GWindows.GWidget.GTopLevel import GraphSliderTop, TypeSelectTop, ScatterDiagramTop
 from torch import no_grad
 
 
@@ -33,12 +36,13 @@ class DataSetMenu(Menu, PublicMember):
     def __init__(self, master, **kw):
         super().__init__(master, **kw)
         PublicMember().__init__()
+        self.plt = plt
         self.master = master  # menubar
         self.add_command(label='散点式可视化',
                          command=lambda: self.openFile('打开文件', [('Excel文件', '*.xlsx')], self.showAsScatterGraph))
         self.add_command(label='区域式可视化',
                          command=lambda: self.openFile('打开文件', [('Excel文件', '*.xlsx')], self.showAsCounterGraph))
-        self.add_command(label='划分数据集', command=self.train_val_test)
+        self.add_command(label='划分数据集', command=self.check_train_val_test)
 
 
 class ModelPreMenu(Menu, PublicMember):
@@ -49,17 +53,20 @@ class ModelPreMenu(Menu, PublicMember):
     def __init__(self, master, **kw):
         super().__init__(master, **kw)
         PublicMember().__init__()
-        self.label = None
-        self.z = None
-        self.y = None
+        self.labels = None  # 预测的标签
         self.x = None
+        self.y = None
+        self.probability = None
         self.master = master  # menubar
         self.add_command(label='导入模型',
                          command=lambda: self.openFile('导入模型', [('模型文件', '*.pth')], self.setCurrentModel))
-        self.add_command(label='模型预测', command=self.predict)
+        self.add_command(label='模型预测', command=lambda: TypeSelectTop(self, '选择预测方式', ['散点式', '等值式'],
+                                                                         ['GImage/predictType1.png',
+                                                                          'GImage/predictType2.png'],
+                                                                         [self.predict, lambda: self.predict(1)]))
 
-    def predict(self):
-        # 使用导入的模型进行预测
+    def predict(self, preType=0):
+        # 使用导入的模型进行预测，默认散点式0
         try:
             model = self.currentModel.to(self.device)
             data = self.partitionedDataSets[self.targetData].to(self.device)
@@ -71,15 +78,21 @@ class ModelPreMenu(Menu, PublicMember):
         model.eval()
         with no_grad():
             predict_probability = model(data.x, data.edge_index).cpu()  # 预测，并将数据转回到cpu
-        predict_probability_one = predict_probability[:, 1]  # 取第二列(标签为1)的概率
+        # predict_probability_one = predict_probability[:, 1]  # 默认取第1列(标签为1)的概率
         self.x = df.iloc[:, 1].tolist()  # XX
         self.y = df.iloc[:, 2].tolist()
-        self.z = predict_probability_one.numpy().tolist()
-        self.label = predict_probability.max(1)[1].numpy().tolist()
+        self.probability = predict_probability.numpy().tolist()
+        self.labels = predict_probability.max(1)[1].numpy().tolist()
         model.to(self.device)
         data.to(self.device)
-        GraphSliderTop(self, '模型预测', '正样本的概率分布图', 'X', 'Y', self.x, self.y, self.z, '输出预测结果',
-                       lambda: self.saveFile('保存预测结果', '新建文件', '预测结果文件', 'xlsx', self.saveResultExcel))
+        if preType:
+            GraphSliderTop(self, '模型预测', '概率分布图', 'X', 'Y', self.x, self.y, self.probability, '输出预测结果',
+                           lambda: self.saveFile('保存预测结果', '新建文件', '预测结果文件', 'xlsx',
+                                                 self.saveResultExcel))
+        else:
+            ScatterDiagramTop(self, '模型预测', '各类型预测分布图', 'X', 'Y', self.x, self.y, self.labels,
+                              '输出预测结果', lambda: self.saveFile('保存预测结果', '新建文件', '预测结果文件', 'xlsx',
+                                                                    self.saveResultExcel))
         model.to('cpu')
         data.to('cpu')
 
@@ -104,7 +117,7 @@ class AboutMenu(Menu):
         self.add_command(label='软件信息', command=lambda: showinfo('GModel',
                                                                     '作者：方豪\n'
                                                                     '导师：刘岳\n'
-                                                                    '版本：1.0.0\n'
+                                                                    '版本：1.0.1\n'
                                                                     '联系方式1：825585398@qq.com\n'
                                                                     '联系方式2：mengbaofh@cug.edu.cn'))  # 绑定事件
 

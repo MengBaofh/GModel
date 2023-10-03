@@ -1,7 +1,8 @@
 import numpy as np
+import pandas as pd
+import seaborn as sns
 from tkinter import *
 from tkinter import ttk
-from Pmw import Balloon
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from tkinter.messagebox import showwarning
@@ -23,7 +24,6 @@ class ParaMulSelectTop(Toplevel, PublicMember):
         super().__init__(master, kw)
         PublicMember().__init__()
         self.master = master
-        self.balloon = Balloon(self.master)
         self.myTitle = title
         self.headings = headings  # 下拉框表头，[第一个下拉框表头, 第二个下拉框表头, 第三个下拉框表头]
         self.availSelections = availSelections  # 下拉框可选项，[[第一个下拉框], [第二个下拉框], [第三个下拉框]]
@@ -62,7 +62,7 @@ class ParaMulSelectTop(Toplevel, PublicMember):
         self.canvas.place(relx=0.03, rely=0.1, relheight=0.35, relwidth=0.93)
         for i in range(self.varCount // self.columnNum):
             for j in range(self.columnNum):
-                print(self.varCount)
+                # print(self.varCount)
                 ttk.Combobox(self.frame, values=self.availSelections[j],
                              textvariable=self.vars[i * self.columnNum + j],
                              justify='center').grid(row=i, column=j)
@@ -122,7 +122,8 @@ class ParaMulSelectTop(Toplevel, PublicMember):
             return
         for i in range(self.varCount):
             if not i % self.columnNum:
-                self.master.convs[f'conv{i // self.columnNum}'] = [self.vars[i + j].get() for j in range(self.columnNum)]
+                self.master.convs[f'conv{i // self.columnNum}'] = [self.vars[i + j].get() for j in
+                                                                   range(self.columnNum)]
         self.method()
         self.destroy()
 
@@ -137,7 +138,6 @@ class ParaSelectTop(Toplevel, PublicMember):
     def __init__(self, master, myTitle, modelType, parameters, method, isProgressive=False, function=None, **kw):
         super().__init__(master, kw)
         PublicMember().__init__()
-        self.balloon = Balloon(self.master)
         self.master = master
         self.myTitle = myTitle
         self.parameters = parameters  # {题目:[选项1, 选项2, ...],}
@@ -206,7 +206,6 @@ class GraphTextShowTop(Toplevel, PublicMember):
         self.ax1 = None
         self.canvas = None
         self.textbox = None
-        self.balloon = Balloon(self.master)
         self.master = master
         self.topTitle = topTitle  # toplevel的标题
         self.leftGTitle = leftGTitle  # 图左轴文本
@@ -259,13 +258,15 @@ class GraphTextShowTop(Toplevel, PublicMember):
         self.ax2.plot(range(len(train_acc_history)), train_acc_history, c=np.array([79, 179, 255]) / 255.,
                       label='Train_Acc')
         self.ax2.plot(range(len(val_acc_history)), val_acc_history, c=np.array([0, 255, 0]) / 255.0, label='Val_Acc')
+        # self.ax2.set_ylim(0, 1)
+        self.ax2.set_yticks(np.arange(0, 1.1, 0.1))
         self.ax2.legend()
         self.canvas.draw()
 
 
-class GraphSliderTop(Toplevel, PublicMember):
+class ScatterDiagramTop(Toplevel, PublicMember):
     """
-    分区显示弹窗类
+    散点图弹窗类
     """
     width = 1100
     height = 600
@@ -273,12 +274,63 @@ class GraphSliderTop(Toplevel, PublicMember):
     def __init__(self, master, topTitle, gTitle, xTitle, yTitle, x, y, z, buttonText, buttonFunc, **kw):
         super().__init__(master, kw)
         PublicMember().__init__()
+        self.ax = None
+        self.canvas = None
+        self.plt = plt
+        self.master = master
+        self.topTitle = topTitle  # toplevel的标题
+        self.gTitle = gTitle  # 图标题文本
+        self.xTitle = xTitle  # x轴文本
+        self.yTitle = yTitle  # y轴文本
+        self.df = pd.DataFrame({'XX': x, 'YY': y, 'ZZ': z})
+        self.buttonText = buttonText
+        self.buttonFunc = buttonFunc
+        self.setScatterDiagramTop()
+        self.setGraph()
+        self.setButton()
+
+    def setScatterDiagramTop(self):
+        self.title(self.topTitle)
+        self.iconbitmap('GImage/sys.ico')
+        self.geometry(f'{self.width}x{self.height}+100+100')
+        # self.grab_set()  # 禁止与其他窗口交互
+        self.lift()  # 保持窗口最上
+
+    def setGraph(self):
+        fig = self.plt.figure()
+        sns.set_palette('colorblind')  # 使用 colorblind 调色板
+        self.ax = sns.scatterplot(data=self.df, x=self.df.columns[0], y=self.df.columns[1], hue=self.df.columns[-1])
+        self.plt.title(self.gTitle)
+        self.plt.ylabel(self.yTitle)
+        self.plt.xlabel(self.xTitle)
+        self.plt.axis('equal')  # x\y轴间隔相同
+        self.plt.legend()
+        self.canvas = FigureCanvasTkAgg(fig, master=self)
+        self.canvas.get_tk_widget().place(relx=0.03, rely=0.01, relheight=0.84, relwidth=0.85)
+        self.canvas.draw()
+
+    def setButton(self):
+        Button(self, text=self.buttonText, command=self.buttonFunc).place(relx=0.2, rely=0.86, relheight=0.13,
+                                                                          relwidth=0.6)
+
+
+class GraphSliderTop(Toplevel, PublicMember):
+    """
+    等值图弹窗类
+    """
+    width = 1100
+    height = 600
+
+    def __init__(self, master, topTitle, gTitle, xTitle, yTitle, x, y, z, buttonText, buttonFunc, **kw):
+        super().__init__(master, kw)
+        PublicMember().__init__()
+        self.combobox = None
         self.colorbar = None
         self.update_canvas_id = None
         self.slider = None
         self.ax = None
         self.canvas = None
-        self.balloon = Balloon(self.master)
+        self.plt = plt
         self.master = master
         self.topTitle = topTitle  # toplevel的标题
         self.gTitle = gTitle  # 图标题文本
@@ -287,8 +339,105 @@ class GraphSliderTop(Toplevel, PublicMember):
         self.x = x
         self.y = y
         self.z = z
+        self.label = IntVar()  # 等值图当前展示的标签
+        self.label.set(1)  # 默认为标签1的
         self.buttonText = buttonText
         self.buttonFunc = buttonFunc
+        self.setGraphSliderTop()
+        self.setCombobox()
+        self.setSlider()
+        self.setGraph()
+        self.setButton()
+
+    def setGraphSliderTop(self):
+        self.title(self.topTitle)
+        self.iconbitmap('GImage/sys.ico')
+        self.geometry(f'{self.width}x{self.height}+100+100')
+        # self.grab_set()  # 禁止与其他窗口交互
+        self.lift()  # 保持窗口最上
+
+    def setCombobox(self):
+        Label(self, text='选择标签:', font=("SimHei", 8)).place(relx=0.9, rely=0, relheight=0.05, relwidth=0.05)
+        self.combobox = ttk.Combobox(self, values=[i for i in range(len(self.z[0]))], textvariable=self.label)
+        self.combobox.place(relx=0.95, rely=0, relheight=0.05, relwidth=0.05)
+
+    def setSlider(self):
+        self.slider = Scale(self, from_=2, to=20, orient="vertical", command=self.scheduleAdjustCanvas)
+        self.slider.set(10)  # 设置初始默认值
+        Label(self, text='调\n\n整\n\n等\n\n值\n\n线\n\n条\n\n数', font=("SimHei", 15)).place(relx=0.88,
+                                                                                              rely=0.05,
+                                                                                              relheight=0.98,
+                                                                                              relwidth=0.05)
+        self.slider.place(relx=0.93, rely=0.1, relheight=0.8, relwidth=0.05)
+
+    def setGraph(self):
+        fig = self.plt.figure()
+        self.ax = fig.add_subplot(111)
+        # 填充等值线
+        # print(self.label.get())
+        contour = self.ax.tricontourf(self.x, self.y, [i[self.label.get()] for i in self.z], levels=10, cmap='hot_r')
+        self.colorbar = self.ax.figure.colorbar(contour)
+        self.plt.title(self.gTitle)
+        self.plt.ylabel(self.yTitle)
+        self.plt.xlabel(self.xTitle)
+        self.plt.axis('equal')  # x\y轴间隔相同
+        self.canvas = FigureCanvasTkAgg(fig, master=self)
+        self.canvas.get_tk_widget().place(relx=0.03, rely=0.01, relheight=0.84, relwidth=0.85)
+        self.canvas.draw()
+
+    def setButton(self):
+        Button(self, text=self.buttonText, command=self.buttonFunc).place(relx=0.2, rely=0.86, relheight=0.13,
+                                                                          relwidth=0.6)
+
+    def updateCanvas(self, levels):
+        # print(levels)
+        self.ax.clear()  # 清除之前的图形
+        self.colorbar.remove()  # 清除之前的colorbar
+        contour = self.ax.tricontourf(self.x, self.y, [i[self.label.get()] for i in self.z], levels=levels, cmap='hot_r')
+        self.colorbar = self.ax.figure.colorbar(contour)
+        self.plt.title(self.gTitle)
+        self.plt.ylabel(self.yTitle)
+        self.plt.xlabel(self.xTitle)
+        self.plt.axis('equal')  # x\y轴间隔相同
+        self.canvas.draw()
+        self.update_canvas_id = None  # 重置延时更新的标识符
+
+    def scheduleAdjustCanvas(self, event):
+        """
+        延时更新画布，防止卡顿
+        :param event: 事件对象
+        """
+        if self.update_canvas_id is None:
+            self.update_canvas_id = self.after(10, lambda: self.updateCanvas(int(event)))
+
+
+class GraphSliderTop2(Toplevel, PublicMember):
+    """
+    动态调整数据集弹窗类
+    """
+    width = 1100
+    height = 600
+
+    def __init__(self, master, topTitle, gTitle, xTitle, yTitle, df, divideType, row, col, buText, buFunc, **kw):
+        super().__init__(master, kw)
+        PublicMember().__init__()
+        self.colorbar = None
+        self.update_canvas_id = None
+        self.slider = None
+        self.ax = None
+        self.canvas = None
+        self.plt = plt
+        self.master = master
+        self.topTitle = topTitle  # toplevel的标题
+        self.gTitle = gTitle  # 图标题文本
+        self.xTitle = xTitle  # x轴文本
+        self.yTitle = yTitle  # y轴文本
+        self.df = df
+        self.divideType = divideType
+        self.row = row
+        self.col = col
+        self.buText = buText
+        self.buFunc = buFunc
         self.setGraphSliderTop()
         self.setSlider()
         self.setGraph()
@@ -302,39 +451,37 @@ class GraphSliderTop(Toplevel, PublicMember):
         self.lift()  # 保持窗口最上
 
     def setSlider(self):
-        self.slider = Scale(self, from_=2, to=20, orient="vertical", command=self.scheduleAdjustCanvas)
-        self.slider.set(10)  # 设置初始默认值
-        Label(self, text='调\n\n整\n\n等\n\n值\n\n线\n\n条\n\n数', font=("SimHei", 15)).place(relx=0.88,
-                                                                                              rely=0.01,
-                                                                                              relheight=0.98,
-                                                                                              relwidth=0.05)
+        self.slider = Scale(self, from_=1, to=10, orient="vertical", command=self.scheduleAdjustCanvas)
+        self.slider.set(8)  # 设置初始默认值
+        Label(self, text='调\n\n整\n\n训\n\n练\n\n集\n\n占\n\n比', font=("SimHei", 15)). \
+            place(relx=0.88, rely=0.01, relheight=0.98, relwidth=0.05)
         self.slider.place(relx=0.93, rely=0.1, relheight=0.8, relwidth=0.05)
 
     def setGraph(self):
-        fig = plt.figure()
-        self.ax = fig.add_subplot(111)
-        # 填充等值线
-        contour = self.ax.tricontourf(self.x, self.y, self.z, levels=10, cmap='hot_r')
-        self.colorbar = self.ax.figure.colorbar(contour)
-        plt.title(self.gTitle)
-        plt.ylabel(self.yTitle)
-        plt.xlabel(self.xTitle)
-        plt.axis('equal')  # x\y轴间隔相同
+        fig = self.plt.figure()
+        sns.set_palette('colorblind')  # 使用 colorblind 调色板
+        self.ax = sns.scatterplot()
         self.canvas = FigureCanvasTkAgg(fig, master=self)
         self.canvas.get_tk_widget().place(relx=0.03, rely=0.01, relheight=0.84, relwidth=0.85)
         self.canvas.draw()
 
     def setButton(self):
-        Button(self, text=self.buttonText, command=self.buttonFunc).place(relx=0.2, rely=0.86, relheight=0.13,
-                                                                          relwidth=0.6)
+        Button(self, text=self.buText, command=self.buFunc).place(relx=0.2, rely=0.86, relheight=0.13, relwidth=0.6)
 
     def updateCanvas(self, levels):
-        # print(levels)
         self.ax.clear()  # 清除之前的图形
-        self.colorbar.remove()  # 清除之前的colorbar
-        contour = self.ax.tricontourf(self.x, self.y, self.z, levels=levels, cmap='hot_r')
-        self.colorbar = self.ax.figure.colorbar(contour)
-        plt.title(self.gTitle)
+        # 调整数据集
+        PublicMember.train_level = levels / 10
+        ttype = ([1] * int(self.col * self.train_level) + [2] * (self.col - int(self.col * self.train_level))) * \
+                self.row if self.divideType else [1] * int(self.row * self.train_level) * self.col + \
+                                                 [2] * (self.row - int(self.row * self.train_level)) * self.col
+        sns.set_palette('colorblind')  # 使用 colorblind 调色板
+        self.ax = sns.scatterplot(data=self.df, x=self.df.columns[1], y=self.df.columns[2], hue=ttype)
+        self.plt.title(self.gTitle)
+        self.plt.ylabel(self.yTitle)
+        self.plt.xlabel(self.xTitle)
+        self.plt.axis('equal')  # x\y轴间隔相同
+        self.plt.legend()
         self.canvas.draw()
         self.update_canvas_id = None  # 重置延时更新的标识符
 
@@ -345,3 +492,45 @@ class GraphSliderTop(Toplevel, PublicMember):
         """
         if self.update_canvas_id is None:
             self.update_canvas_id = self.after(10, lambda: self.updateCanvas(int(event)))
+
+
+class TypeSelectTop(Toplevel, PublicMember):
+    """
+    按钮（展示图片）文本选择弹窗类
+    """
+    width = 600
+    height = 300
+
+    def __init__(self, master, topTitle, labels, buttonPhotoPaths, buttonFuncs, **kw):
+        super().__init__(master, kw)
+        PublicMember().__init__()
+        self.master = master
+        self.topTitle = topTitle  # toplevel的标题
+        self.labels = labels  # 标签显示的文本
+        self.buttonPhotoPaths = buttonPhotoPaths  # 按钮显示的图片
+        self.buttonFuncs = buttonFuncs  # 按钮执行功能
+        self.num = len(self.labels)
+        # print(self.num)
+        self.setGraphTextShowTop()
+        self.setLabel()
+        self.setButton()
+
+    def setGraphTextShowTop(self):
+        self.title(self.topTitle)
+        self.iconbitmap('GImage/sys.ico')
+        self.geometry(f'{self.width}x{self.height}+200+200')
+        # self.grab_set()  # 禁止与其他窗口交互
+        self.lift()  # 保持窗口最上
+
+    def setLabel(self):
+        for i, label in enumerate(self.labels):
+            Label(self, text=label).place(relx=(0.15 + 0.4 * i) * (self.num // 2),
+                                          rely=0.1, relwidth=0.3 * (self.num // 2),
+                                          relheight=0.2)
+
+    def setButton(self):
+        from GWindows.GWidget.GButton import CustomButton
+        for i, path in enumerate(self.buttonPhotoPaths):
+            CustomButton(self, path, self.buttonFuncs[i]).place(relx=(0.15 + 0.4 * i) * (self.num // 2),
+                                                                rely=0.3, relwidth=0.3 * (self.num // 2),
+                                                                relheight=0.4)

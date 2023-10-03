@@ -1,7 +1,5 @@
 import os
 import sys
-# import torch
-import random
 import numpy as np
 from tkinter import *
 from tkinter.messagebox import showerror, showwarning, showinfo
@@ -59,6 +57,13 @@ class AddDataButton(CustomButton):
         # 可能会有两种类型的文件重复加载的情况
         fileName = f.name.split('/')[-1]
         fileSuffix = fileName.split('.')[-1]
+        if fileSuffix == 'pth':
+            try:
+                data = load(f.name)
+                x = data.x
+            except:
+                showerror('GModel', '导入的数据为空或格式有误！')
+                return
         try:
             self.master.master.getFrame()[1].getTreeView().insert('', '0', f.name, text=fileName)
         except TclError:
@@ -67,14 +72,9 @@ class AddDataButton(CustomButton):
             if fileSuffix == 'xlsx':
                 self.loadedData[f.name] = self.dataLoader(f.name)  # 将数据加入字典
             else:
-                try:
-                    data = load(f.name)
-                except EOFError:
-                    showerror('GModel', '导入的数据为空！')
-                else:
-                    self.partitionedDataSets[f.name] = data
-                    print(self.partitionedDataSets[f.name])
-                    self.loadedData[f.name] = self.dataLoader(data)
+                self.partitionedDataSets[f.name] = data
+                # print(self.partitionedDataSets[f.name])
+                self.loadedData[f.name] = self.dataLoader(data)
             self.master.master.getFrame()[1].getTreeView().updateText()
 
 
@@ -84,7 +84,7 @@ class DivideDataButton(CustomButton):
     """
 
     def __init__(self, master):
-        super().__init__(master, 'GImage/divideData.png', self.train_val_test)
+        super().__init__(master, 'GImage/divideData.png', self.check_train_val_test)
 
 
 class GNNsButton(CustomButton):
@@ -98,6 +98,17 @@ class GNNsButton(CustomButton):
         self.bestModelState = None  # 最佳模型
         self.lastModel = None  # 最后一轮训练的模型
         self.gTextShowTop = None
+        # 超参数设置窗口
+        self.hyperParameterTop = lambda typeName: ParaSelectTop(self, f'{typeName}超参数设置', f'{typeName}',
+                                                                {'优化器': ['Adam', 'SGD'],
+                                                                 '损失函数': ['交叉损失函数',
+                                                                              '负对数似然损失函数'],
+                                                                 '学习率': [i / 100 for i in range(10)],
+                                                                 '正则化系数': [i / 100 for i in range(10)],
+                                                                 '运行设备': ['CPU', 'GPU'],
+                                                                 '临界距离': ['请手动输入'],
+                                                                 '迭代训练次数': ['请手动输入']},
+                                                                self.once)
         self.master = master
 
     @staticmethod
@@ -106,29 +117,6 @@ class GNNsButton(CustomButton):
             return Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
         elif optimizerType == 'SGD':
             return SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
-
-    @staticmethod
-    def constructEdgeIndex(textbox, points, threshold):
-        """
-        根据点集构建无向图的邻接关系，注意点集的索引从1开始
-        :param textbox:
-        :param points: dict
-        :param threshold:
-        :return:
-        """
-        edge_index = []
-        num_points = len(points)
-        for i in range(num_points):
-            for j in range(i + 1, num_points):
-                textbox.update()
-                x1, y1 = points[i + 1]
-                x2, y2 = points[j + 1]
-                distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-                if distance <= threshold:
-                    edge_index.append([i, j])
-                    edge_index.append([j, i])
-        edge_index = tensor(edge_index, dtype=torchLong).t().contiguous()
-        return edge_index
 
     @staticmethod
     def getAcc(model, dataSet, mask):
@@ -142,52 +130,9 @@ class GNNsButton(CustomButton):
             acc = eq(predict_y, dataSet.y[mask]).float().mean()  # 将标记集合的预测结果与实际比较
             return acc, mask_out.cpu().numpy(), dataSet.y[mask].cpu().numpy()
 
-    @staticmethod
-    def train_val_test(data, ini_points):
-        # 划分数据集
-        num_of_point = len(ini_points)
-        upper_sample1 = []  # 阴
-        upper_sample2 = []  # 阳
-        lower_sample1 = []  # 阴
-        lower_sample2 = []  # 阳
-        unKnown_sample = []  # 未知
-        allPoints_y = data.y.numpy().tolist()
-        for i in range(num_of_point):
-            if i < num_of_point // 2:  # 上半图的点
-                if allPoints_y[i] == 0:  # 样本点1(阴性)
-                    upper_sample1.append(i)
-                elif allPoints_y[i] == 1:  # 样本点2
-                    upper_sample2.append(i)
-                else:
-                    unKnown_sample.append(i)  # 未知
-            else:  # 下部分点
-                if allPoints_y[i] == 0:  # 样本点1
-                    lower_sample1.append(i)
-                elif allPoints_y[i] == 1:  # 样本点2
-                    lower_sample2.append(i)
-                else:
-                    unKnown_sample.append(i)  # 未知
-        upper_num = len(upper_sample1) if len(upper_sample1) < len(upper_sample2) else len(upper_sample2)  # 取数量少的为标准
-        lower_num = len(lower_sample1) if len(lower_sample1) < len(lower_sample2) else len(lower_sample2)
-        selected_upper_sample2 = random.sample(upper_sample2, int(upper_num * 0.8))  # 上半图阳性点
-        selected_upper_sample1 = random.sample(upper_sample1, len(selected_upper_sample2))  # 阴性点与阳性点数量应该相同
-        selected_lower_sample2 = random.sample(lower_sample2, int(lower_num * 0.8))
-        selected_lower_sample1 = random.sample(lower_sample1, len(selected_lower_sample2))
-        selected_points = [0] * num_of_point  # 全图选择的点
-        test_points = [0] * num_of_point  # 测试集的点
-        for point in selected_upper_sample1:
-            selected_points[point] = 1
-        for point in selected_upper_sample2:
-            selected_points[point] = 1
-        for point in selected_lower_sample1:
-            selected_points[point] = 1
-        for point in selected_lower_sample2:
-            selected_points[point] = 1
-        for point in unKnown_sample:
-            test_points[point] = 1
-        upper_points_mask = selected_points[:num_of_point // 2] + [0] * (num_of_point - num_of_point // 2)  # 使用上部分点
-        lower_points_mask = [0] * (num_of_point // 2) + selected_points[num_of_point // 2: num_of_point]
-        return upper_points_mask, lower_points_mask, test_points
+    def closeShowTop(self):
+        self.gTextShowTop.destroy()
+        self.gTextShowTop = None
 
     def saveTorchModel(self, modelType):
         if modelType:
@@ -228,12 +173,27 @@ class GNNsButton(CustomButton):
                                              'Epoch', {'保存最优模型(训练损失最低)': lambda: self.saveTorchModel(1),
                                                        '保存最终模型(最后一轮训练结束)': lambda: self.saveTorchModel(0),
                                                        '保存pth格式数据集': self.saveTorchData})
+        self.gTextShowTop.protocol("WM_DELETE_WINDOW", self.closeShowTop)
         if self.partitionedDataSets[self.targetData].edge_index is None:
             self.gTextShowTop.textbox.showProcess(f'! 未检测到邻接矩阵，即将新建邻接矩阵。\n')
             critical_distance = float(vars['临界距离'].get())
             self.gTextShowTop.textbox.showProcess(f'* 临界距离：{critical_distance}\n')
-            self.gTextShowTop.textbox.showProcess('√ 正在生成邻接矩阵(大约需要3-5分钟，请不要关闭该界面)...\n')
-            data.edge_index = self.constructEdgeIndex(self.gTextShowTop.textbox, data.ini_points, critical_distance)
+            self.gTextShowTop.textbox.showProcess('√ 正在生成邻接矩阵(每5000节点需要3-5分钟)...\n')
+            # data.edge_index = self.constructEdgeIndex(self.gTextShowTop.textbox, data.ini_points, critical_distance)
+            edge_index = []
+            num_points = len(data.ini_points)
+            for i in range(num_points):
+                for j in range(i + 1, num_points):
+                    if not self.gTextShowTop:
+                        return
+                    self.gTextShowTop.textbox.update()
+                    x1, y1 = data.ini_points[i + 1]
+                    x2, y2 = data.ini_points[j + 1]
+                    distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+                    if distance <= critical_distance:
+                        edge_index.append([i, j])
+                        edge_index.append([j, i])
+            data.edge_index = tensor(edge_index, dtype=torchLong).t().contiguous()
             # torch.save(data, 'data.pth')
         else:
             self.gTextShowTop.textbox.showProcess(f'* 检测到邻接矩阵，将使用已有的邻接矩阵。\n')
@@ -280,6 +240,10 @@ class GNNsButton(CustomButton):
             criterion = CrossEntropyLoss()
         elif vars['损失函数'].get() == '负对数似然损失函数':
             criterion = NLLLoss()
+        else:
+            showerror('GModel', f'× 未知损失函数：{vars["损失函数"].get()}，请修改后重试！')
+            self.gTextShowTop.textbox.showProcess(f'× 未知损失函数：{vars["损失函数"].get()}，请修改后重试！\n')
+            return
         self.gTextShowTop.textbox.showProcess(f'* 优化器：\n{optimizer}\n* 损失函数：{criterion}\n')
         # 设置运行设备
         PublicMember.device = 'cuda' if vars['运行设备'].get() == 'GPU' and cuda.is_available() else 'cpu'
@@ -288,7 +252,7 @@ class GNNsButton(CustomButton):
         model.to(self.device)
         data.to(self.device)
         # 迭代训练
-        self.gTextShowTop.textbox.showProcess('√ 准备就绪。\n')
+        self.gTextShowTop.textbox.showProcess('√ 准备就绪！\n')
         loss_history, train_acc_history, val_acc_history = [], [], []
         for epoch in range(num_epochs):
             self.gTextShowTop.update()
@@ -334,17 +298,8 @@ class GCNButton(GNNsButton):
         super().__init__(master, 'GImage/gcn.png',
                          lambda: ParaMulSelectTop(self, 'GCN模型参数配置', ['输入维度', '输出维度', 'dropout'],
                                                   [['请手动输入'], ['请手动输入'], [i / 10 for i in range(10)]],
-                                                  lambda: ParaSelectTop(self, 'GCN超参数设置', 'GCN',
-                                                                        {'优化器': ['Adam', 'SGD'],
-                                                                         '损失函数': ['交叉损失函数',
-                                                                                      '负对数似然损失函数'],
-                                                                         '学习率': [i / 100 for i in range(10)],
-                                                                         '正则化系数': [i / 100 for i in range(10)],
-                                                                         '运行设备': ['CPU', 'GPU'],
-                                                                         '临界距离': ['请手动输入'],
-                                                                         '迭代训练次数': ['请手动输入']},
-                                                                        self.once)
-                                                  ))
+                                                  lambda: self.hyperParameterTop('GCN'))
+                         )
 
 
 class GATButton(GNNsButton):
@@ -359,14 +314,5 @@ class GATButton(GNNsButton):
                                                   ['输入维度', '输出维度', '注意力头数', 'dropout', '多头处理机制'],
                                                   [['请手动输入'], ['请手动输入'], [i for i in range(1, 6)],
                                                    [i / 10 for i in range(10)], ['拼接', '取平均']],
-                                                  lambda: ParaSelectTop(self, 'GAT超参数设置', 'GAT',
-                                                                        {'优化器': ['Adam', 'SGD'],
-                                                                         '损失函数': ['交叉损失函数',
-                                                                                      '负对数似然损失函数'],
-                                                                         '学习率': [i / 100 for i in range(10)],
-                                                                         '正则化系数': [i / 100 for i in range(10)],
-                                                                         '运行设备': ['CPU', 'GPU'],
-                                                                         '临界距离': ['请手动输入'],
-                                                                         '迭代训练次数': ['请手动输入']},
-                                                                        self.once)
-                                                  ))
+                                                  lambda: self.hyperParameterTop('GAT'))
+                         )
