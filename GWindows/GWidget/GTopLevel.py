@@ -306,7 +306,7 @@ class ScatterDiagramTop(Toplevel, PublicMember):
         self.plt.axis('equal')  # x\y轴间隔相同
         self.plt.legend()
         self.canvas = FigureCanvasTkAgg(fig, master=self)
-        self.canvas.get_tk_widget().place(relx=0.03, rely=0.01, relheight=0.84, relwidth=0.85)
+        self.canvas.get_tk_widget().place(relx=0.1, rely=0.01, relheight=0.84, relwidth=0.8)
         self.canvas.draw()
 
     def setButton(self):

@@ -241,7 +241,7 @@ class PublicMember:
             if len(v) < upper_num:
                 upper_num = len(v)  # 取数量少的为标准
         # print(upper_samples)
-        selected_upper_sample = {k: random.sample(v, int(upper_num * 0.8))
+        selected_upper_sample = {k: random.sample(v, int(upper_num * 0.9))
                                  for k, v in upper_samples.items()}
         selected_train_points = [0] * num_of_point  # 上/左图选择的点
         val_points = [0] * num_of_point  # 验证集的点
