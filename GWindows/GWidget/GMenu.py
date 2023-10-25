@@ -1,9 +1,7 @@
 import pandas as pd
 from tkinter import *
 from tkinter.messagebox import showinfo, showerror
-
 from matplotlib import pyplot as plt
-
 from GWindows.GWidget.publicMember import PublicMember
 from GWindows.GWidget.GTopLevel import GraphSliderTop, TypeSelectTop, ScatterDiagramTop
 from torch import no_grad
@@ -20,12 +18,10 @@ class MenuBar(Menu):
         self.addMenu()
 
     def addMenu(self):
-        about_menu = AboutMenu(self, tearoff=False)
-        dataSet_menu = DataSetMenu(self, tearoff=False)
-        modelPre_menu = ModelPreMenu(self, tearoff=False)
-        self.add_cascade(label='关于', menu=about_menu)
-        self.add_cascade(label='数据处理', menu=dataSet_menu)
-        self.add_cascade(label='模型预测', menu=modelPre_menu)
+        self.add_cascade(label='关于', menu=AboutMenu(self, tearoff=False))
+        self.add_cascade(label='数据处理', menu=DataSetMenu(self, tearoff=False))
+        self.add_cascade(label='模型预测', menu=ModelPreMenu(self, tearoff=False))
+        # self.add_cascade(label='设置全局属性', menu=SettingMenu(self, tearoff=False))
 
 
 class DataSetMenu(Menu, PublicMember):
@@ -106,6 +102,18 @@ class ModelPreMenu(Menu, PublicMember):
         showinfo('GModel', '成功保存预测结果！')
 
 
+class SettingMenu(Menu, PublicMember):
+    """
+    '设置全局属性'菜单
+    """
+
+    def __init__(self, master, **kw):
+        super().__init__(master, **kw)
+        PublicMember().__init__()
+        self.master = master  # menubar
+        self.add_command(label='设置坐标投影类型', command=self.setCoordinateType)  # 绑定事件
+
+
 class AboutMenu(Menu):
     """
     '关于'菜单
@@ -117,7 +125,7 @@ class AboutMenu(Menu):
         self.add_command(label='软件信息', command=lambda: showinfo('GModel',
                                                                     '作者：方豪\n'
                                                                     '导师：刘岳\n'
-                                                                    '版本：1.1.1\n'
+                                                                    '版本：1.1.2\n'
                                                                     '联系方式1：825585398@qq.com\n'
                                                                     '联系方式2：mengbaofh@cug.edu.cn'))  # 绑定事件
 

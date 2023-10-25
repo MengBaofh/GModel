@@ -23,6 +23,7 @@ class PublicMember:
     train_level = 0.8  # 训练集占比
     device = 'cpu'  # 默认使用的设备
     torch_root = 'Torch_Output/'
+    # coordinateType = 1  # 默认为投影坐标系（1，m）；【地理坐标系（0，度）】
 
     def __init__(self):
         self.image_open = None
@@ -196,8 +197,8 @@ class PublicMember:
         data = Data(x=x, y=y, xx=xx, yy=yy, row=row, col=col)
         data.ini_points = {int(i[0] + 1): list(i[1:]) for i in df_adj.values}  # pointIndex(1~n):[x, y]
         from GWindows.GWidget.GTopLevel import GraphSliderTop2
-        self.graphSliderTop2 = GraphSliderTop2(self, '数据集划分', '数据集可视化', 'X', 'Y', dataFrame, divideType, row,
-                                               col, '确定',
+        self.graphSliderTop2 = GraphSliderTop2(self, '数据集划分', '数据集可视化', 'X', 'Y', dataFrame, divideType,
+                                               row, col, '确定',
                                                lambda: self.train_val_test(data, dataFrame, num_of_y, divideType))
 
     def train_val_test(self, data, dataFrame, num_of_y, divideType):
@@ -222,10 +223,10 @@ class PublicMember:
                 else:  # 右图点
                     lower_sample.append(i)
         else:
-            train_row = int(data.row * self.train_level)
-            # print(train_row)
+            train_num = int(num_of_point * self.train_level)
+            # print(train_num)
             for i in range(num_of_point):
-                if i // data.col < train_row:  # 上图的点
+                if i < train_num:  # 上图的点
                     label = int(allPoints_y[i])
                     if label in labels:
                         upper_samples[label].append(i)
@@ -240,7 +241,7 @@ class PublicMember:
                 return
             if len(v) < upper_num:
                 upper_num = len(v)  # 取数量少的为标准
-        # print(upper_samples)
+        # print(upper_num)
         selected_upper_sample = {k: random.sample(v, int(upper_num * 0.9))
                                  for k, v in upper_samples.items()}
         selected_train_points = [0] * num_of_point  # 上/左图选择的点
@@ -277,3 +278,6 @@ class PublicMember:
         else:
             showinfo('GModel', '模型导入成功！')
         # print(self.currentModel)
+
+    def setCoordinateType(self):
+        pass

@@ -107,6 +107,7 @@ class GNNsButton(CustomButton):
                                                                  '正则化系数': [i / 100 for i in range(10)],
                                                                  '运行设备': ['CPU', 'GPU'],
                                                                  '临界距离': ['请手动输入'],
+                                                                 '最大邻接行数(可选)': [''],
                                                                  '迭代训练次数': ['请手动输入']},
                                                                 self.once)
         self.master = master
@@ -176,8 +177,16 @@ class GNNsButton(CustomButton):
         self.gTextShowTop.protocol("WM_DELETE_WINDOW", self.closeShowTop)
         if self.partitionedDataSets[self.targetData].edge_index is None:
             self.gTextShowTop.textbox.showProcess(f'! 未检测到邻接矩阵，即将新建邻接矩阵。\n')
-            critical_distance = float(vars['临界距离'].get())
+            try:
+                critical_distance = float(vars['临界距离'].get())
+                max_line = int(vars['最大邻接行数(可选)'].get()) if vars['最大邻接行数(可选)'].get() else None
+            except ValueError as e:
+                showerror('GModel', f'× 临界距离或最大邻接行数参数有误，请检查后重试！\n{e}')
+                self.gTextShowTop.textbox.showProcess(f'× 临界距离或最大邻接行数参数有误，请检查后重试！\n{e}\n')
+                return
             self.gTextShowTop.textbox.showProcess(f'* 临界距离：{critical_distance}\n')
+            if max_line is not None:
+                self.gTextShowTop.textbox.showProcess(f'* 最大邻接行数：{max_line}\n')
             self.gTextShowTop.textbox.showProcess('√ 正在生成邻接矩阵(每5000节点需要3-5分钟)...\n')
             # data.edge_index = self.constructEdgeIndex(self.gTextShowTop.textbox, data.ini_points, critical_distance)
             edge_index = []
@@ -187,8 +196,13 @@ class GNNsButton(CustomButton):
                     if not self.gTextShowTop:
                         return
                     self.gTextShowTop.textbox.update()
+                    if max_line is not None:
+                        if j // data.col > i // data.col + max_line:
+                            break  # 停止内层循环
                     x1, y1 = data.ini_points[i + 1]
+                    # label1 = int(data.y[i])
                     x2, y2 = data.ini_points[j + 1]
+                    # label2 = int(data.y[j])
                     distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
                     if distance <= critical_distance:
                         edge_index.append([i, j])
@@ -196,6 +210,7 @@ class GNNsButton(CustomButton):
             data.edge_index = tensor(edge_index, dtype=torchLong).t().contiguous()
             # torch.save(data, 'data.pth')
         else:
+            # showinfo('GModel', f'检测到邻接矩阵，将使用已有的邻接矩阵。')
             self.gTextShowTop.textbox.showProcess(f'* 检测到邻接矩阵，将使用已有的邻接矩阵。\n')
         # 设置模型
         self.gTextShowTop.textbox.showProcess('√ 正在设置模型...\n')
@@ -254,18 +269,21 @@ class GNNsButton(CustomButton):
         # 迭代训练
         self.gTextShowTop.textbox.showProcess('√ 准备就绪！\n')
         loss_history, train_acc_history, val_acc_history = [], [], []
+        prev_train_loss = 0
         for epoch in range(num_epochs):
             self.gTextShowTop.update()
             model.train()  # 模型训练
             optimizer.zero_grad()  # 梯度清零
             x = model(data.x, data.edge_index)
             train_loss = criterion(x[data.train_mask], data.y[data.train_mask])  # 根据训练集进行优化
-            train_loss.backward()
-            optimizer.step()  # 更新模型参数
-            if train_loss < self.min_loss:  # 保存训练损失最低的一次的模型参数
-                self.min_loss = train_loss
-                self.bestModelState = model
-                # print(self.bestModelState)
+            if abs(prev_train_loss - train_loss) < 0.01 or epoch == 0:
+                train_loss.backward()
+                optimizer.step()  # 更新模型参数
+                if train_loss < self.min_loss:  # 保存训练损失最低的一次的模型参数
+                    self.min_loss = train_loss
+                    self.bestModelState = model
+                    # print(self.bestModelState)
+            prev_train_loss = train_loss
             train_acc_training, _, _ = self.getAcc(model, data, data.train_mask)
             val_acc_training, _, _ = self.getAcc(model, data, data.val_mask)
             loss_history.append(train_loss.item())

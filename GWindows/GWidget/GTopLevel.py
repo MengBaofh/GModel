@@ -120,6 +120,7 @@ class ParaMulSelectTop(Toplevel, PublicMember):
         if self.varCount == 0:
             showwarning('GModel', '请至少输入一个图层！')
             return
+        self.master.convs.clear()  # 清空原字典
         for i in range(self.varCount):
             if not i % self.columnNum:
                 self.master.convs[f'conv{i // self.columnNum}'] = [self.vars[i + j].get() for j in
@@ -177,7 +178,7 @@ class ParaSelectTop(Toplevel, PublicMember):
         x, y = 0.2, 0.15
         for parameter, var in self.vars.items():
             Label(self, text=parameter, relief='groove', anchor='center') \
-                .place(relx=x, rely=y, relheight=0.07, relwidth=0.25)
+                .place(relx=x - 0.1, rely=y, relheight=0.07, relwidth=0.35)
             if not self.isProgressive:
                 ttk.Combobox(self, values=self.parameters[parameter], textvariable=self.vars[parameter],
                              justify='center').place(relx=x + 0.35, rely=y, relheight=0.07,
@@ -393,7 +394,8 @@ class GraphSliderTop(Toplevel, PublicMember):
         # print(levels)
         self.ax.clear()  # 清除之前的图形
         self.colorbar.remove()  # 清除之前的colorbar
-        contour = self.ax.tricontourf(self.x, self.y, [i[self.label.get()] for i in self.z], levels=levels, cmap='hot_r')
+        contour = self.ax.tricontourf(self.x, self.y, [i[self.label.get()] for i in self.z], levels=levels,
+                                      cmap='hot_r')
         self.colorbar = self.ax.figure.colorbar(contour)
         self.plt.title(self.gTitle)
         self.plt.ylabel(self.yTitle)
@@ -434,6 +436,8 @@ class GraphSliderTop2(Toplevel, PublicMember):
         self.yTitle = yTitle  # y轴文本
         self.df = df
         self.divideType = divideType
+        self.length_of_points = df.shape[0]
+        print(self.length_of_points)
         self.row = row
         self.col = col
         self.buText = buText
@@ -473,8 +477,8 @@ class GraphSliderTop2(Toplevel, PublicMember):
         # 调整数据集
         PublicMember.train_level = levels / 10
         ttype = ([1] * int(self.col * self.train_level) + [2] * (self.col - int(self.col * self.train_level))) * \
-                self.row if self.divideType else [1] * int(self.row * self.train_level) * self.col + \
-                                                 [2] * (self.row - int(self.row * self.train_level)) * self.col
+                self.row if self.divideType else [1] * int(self.length_of_points * self.train_level) + [2] * (
+                    self.length_of_points - int(self.length_of_points * self.train_level))
         sns.set_palette('colorblind')  # 使用 colorblind 调色板
         self.ax = sns.scatterplot(data=self.df, x=self.df.columns[1], y=self.df.columns[2], hue=ttype)
         self.plt.title(self.gTitle)
