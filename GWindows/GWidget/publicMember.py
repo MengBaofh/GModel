@@ -1,12 +1,13 @@
 import random
 import pandas as pd
+import sklearn.model_selection
 from tkinter import *
 from tkinter.filedialog import *
 from torch_geometric.data import Data
 from PIL import ImageTk, Image
 from matplotlib import pyplot as plt
 from tkinter.messagebox import showerror, askyesno, showinfo
-from torch import tensor, save, load, BoolTensor, long as torchLong, float as torchFloat
+from torch import tensor, save, load, BoolTensor, long as torchLong, float as torchFloat, float64 as torchDouble
 
 plt.rcParams["font.sans-serif"] = ["SimHei"]  # 用来正常显示中文标签
 plt.rcParams["axes.unicode_minus"] = False  # 用来正常显示负号
@@ -23,6 +24,7 @@ class PublicMember:
     train_level = 0.8  # 训练集占比
     device = 'cpu'  # 默认使用的设备
     torch_root = 'Torch_Output/'
+
     # coordinateType = 1  # 默认为投影坐标系（1，m）；【地理坐标系（0，度）】
 
     def __init__(self):
@@ -49,9 +51,9 @@ class PublicMember:
         :param path: 待处理的数据路径或data类型数据
         :return:
         """
-        if isinstance(path, str):
+        if isinstance(path, str):  # excel
             df = pd.read_excel(path)
-        else:
+        else:  # data格式
             x = path.x.numpy()
             y = path.y.numpy()
             FID = [i for i in range(x.shape[0])]
@@ -84,6 +86,7 @@ class PublicMember:
         file_dialog = askopenfile(title=title, filetypes=fileTypeName)
         if file_dialog is not None:  # 检查返回值是否为 None
             with file_dialog as f:
+                print(f)
                 func(f)
 
     @staticmethod
@@ -155,7 +158,7 @@ class PublicMember:
         # plt.axis('equal')  # x\y轴间隔相同
         # plt.show()
 
-    def check_train_val_test(self):
+    def check_train_val_test(self, cType):
         try:
             dataFrame = self.loadedData[self.targetData]
         except KeyError:
@@ -170,12 +173,50 @@ class PublicMember:
                 if not askyesno('GModel',
                                 '检测到数据集已划分，是否重新划分数据集？\n（重新划分数据集后，需要重新生成邻接矩阵）'):
                     return
-        from GWindows.GWidget.GTopLevel import TypeSelectTop
-        self.topLevel = TypeSelectTop(self, '选择数据集划分方式',
-                                      ['横向划分', '纵向划分'],
-                                      ['GImage/horizontal.png', 'GImage/vertical.png'],
-                                      [lambda: self.init_train_val_test(dataFrame),
-                                       lambda: self.init_train_val_test(dataFrame, 1)])
+        if cType == 1:
+            from GWindows.GWidget.GTopLevel import TypeSelectTop
+            self.topLevel = TypeSelectTop(self, '选择数据集划分方式',
+                                          ['横向划分', '纵向划分'],
+                                          ['GImage/horizontal.png', 'GImage/vertical.png'],
+                                          [lambda: self.init_train_val_test(dataFrame),
+                                           lambda: self.init_train_val_test(dataFrame, 1)])
+        else:
+            self.openFile('导入训练区域', [('训练区域文件', '*.xlsx')], self.importTrainVal)
+
+    def importTrainVal(self, f):
+        train_data_df = self.dataLoader(f.name)
+        df = self.loadedData[self.targetData]
+        df_row, df_col = df.shape
+        pos_x = tensor(df.iloc[:, 1].values, dtype=torchDouble)  # x坐标
+        pos_y = tensor(df.iloc[:, 2].values, dtype=torchDouble)  # y坐标
+        feature = tensor(df.iloc[:, 3:-1].values, dtype=torchFloat)  # 特征值-中间列
+        label = tensor(df.iloc[:, -1].values, dtype=torchLong)  # 分类标签-最后一列
+        train_data_index0 = train_data_df.iloc[:, 0]  # 取出索引列
+        train_data_index0 = train_data_index0.values  # 训练集索引
+        train_data_index, val_data_index = sklearn.model_selection.train_test_split(train_data_index0,
+                                                                                    test_size=0.2)  # 8:2选训练集和验证集
+        print(val_data_index)
+        train_eachLabelIndex = {i: [] for i in range(14)}
+        for index in train_data_index:
+            train_eachLabelIndex[int(label[int(index)])].append(int(index))
+        a = [0] * 14
+        for k, v in train_eachLabelIndex.items():
+            a[k] = len(v)
+        min_num = min(a)
+        print(f'最小数量：{min_num}')
+        train_data, val_data = [0] * df_row, [0] * df_row
+        samples = [random.sample(train_eachLabelIndex[i], int(min_num * 0.9)) for i in range(14)]
+        for sample in samples:
+            for ind in sample:
+                train_data[ind] = 1
+        for index in val_data_index:
+            val_data[index] = 1
+        train_data = BoolTensor(train_data)
+        val_data = BoolTensor(val_data)
+        test_data = BoolTensor([0 if index in train_data_index else 1 for index in range(df_row)])
+        data = Data(xx=pos_x, yy=pos_y, x=feature, y=label, train_mask=train_data, val_mask=val_data,
+                    test_mask=test_data)
+        self.partitionedDataSets[self.targetData] = data
 
     def init_train_val_test(self, dataFrame, divideType=0):
         self.topLevel.destroy()
@@ -188,14 +229,13 @@ class PublicMember:
         df_y = dataFrame.iloc[:, -1]
         num_of_y = df_y.nunique()  # 标签种数（不包括空值）
         # print(num_of_y)
-        xx = tensor(df_xx.values, dtype=torchFloat)  # x坐标
-        yy = tensor(df_yy.values, dtype=torchLong)  # y坐标
+        xx = tensor(df_xx.values, dtype=torchDouble)  # x坐标
+        yy = tensor(df_yy.values, dtype=torchDouble)  # y坐标
         x = tensor(df_x.values, dtype=torchFloat)  # 特征值-中间列
         y = tensor(df_y.values, dtype=torchLong)  # 分类标签-最后一列
         row = xxList.count(xxList[0])  # x相同时，y的个数 = 行数
         col = yyList.count(yyList[0])  # y相同时，x的个数 = 列数
         data = Data(x=x, y=y, xx=xx, yy=yy, row=row, col=col)
-        data.ini_points = {int(i[0] + 1): list(i[1:]) for i in df_adj.values}  # pointIndex(1~n):[x, y]
         from GWindows.GWidget.GTopLevel import GraphSliderTop2
         self.graphSliderTop2 = GraphSliderTop2(self, '数据集划分', '数据集可视化', 'X', 'Y', dataFrame, divideType,
                                                row, col, '确定',

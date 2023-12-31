@@ -125,7 +125,7 @@ class AboutMenu(Menu):
         self.add_command(label='软件信息', command=lambda: showinfo('GModel',
                                                                     '作者：方豪\n'
                                                                     '导师：刘岳\n'
-                                                                    '版本：1.1.2\n'
+                                                                    '版本：1.1.3\n'
                                                                     '联系方式1：825585398@qq.com\n'
                                                                     '联系方式2：mengbaofh@cug.edu.cn'))  # 绑定事件
 

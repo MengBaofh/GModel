@@ -9,7 +9,8 @@ from GWindows.GWidget.GTopLevel import ParaMulSelectTop, ParaSelectTop, GraphTex
 from GNNs.Models import GCN, GAT
 from torch.optim import Adam, SGD
 from torch.nn import CrossEntropyLoss, NLLLoss
-from torch import tensor, save, load, long as torchLong, no_grad, eq, cuda
+from torch import tensor, save, load, long as torchLong, no_grad, eq, cuda, set_printoptions, sum, mm, sqrt, clamp, \
+    stack, nonzero
 
 
 class CustomButton(Button, PublicMember):
@@ -44,7 +45,7 @@ class CustomButton(Button, PublicMember):
 
 class AddDataButton(CustomButton):
     """
-    添加图(excel)按钮
+    添加图(excel/pth)按钮
     """
 
     def __init__(self, master):
@@ -60,7 +61,6 @@ class AddDataButton(CustomButton):
         if fileSuffix == 'pth':
             try:
                 data = load(f.name)
-                x = data.x
             except:
                 showerror('GModel', '导入的数据为空或格式有误！')
                 return
@@ -78,13 +78,22 @@ class AddDataButton(CustomButton):
             self.master.master.getFrame()[1].getTreeView().updateText()
 
 
-class DivideDataButton(CustomButton):
+class DivideDataButton1(CustomButton):
     """
-    划分数据集按钮
+    划分数据集1按钮
     """
 
     def __init__(self, master):
-        super().__init__(master, 'GImage/divideData.png', self.check_train_val_test)
+        super().__init__(master, 'GImage/divideData.png', lambda: self.check_train_val_test(1))
+
+
+class DivideDataButton2(CustomButton):
+    """
+    划分数据集2按钮
+    """
+
+    def __init__(self, master):
+        super().__init__(master, 'GImage/divideData.png', lambda: self.check_train_val_test(2))
 
 
 class GNNsButton(CustomButton):
@@ -107,7 +116,6 @@ class GNNsButton(CustomButton):
                                                                  '正则化系数': [i / 100 for i in range(10)],
                                                                  '运行设备': ['CPU', 'GPU'],
                                                                  '临界距离': ['请手动输入'],
-                                                                 '最大邻接行数(可选)': [''],
                                                                  '迭代训练次数': ['请手动输入']},
                                                                 self.once)
         self.master = master
@@ -179,38 +187,28 @@ class GNNsButton(CustomButton):
             self.gTextShowTop.textbox.showProcess(f'! 未检测到邻接矩阵，即将新建邻接矩阵。\n')
             try:
                 critical_distance = float(vars['临界距离'].get())
-                max_line = int(vars['最大邻接行数(可选)'].get()) if vars['最大邻接行数(可选)'].get() else None
             except ValueError as e:
-                showerror('GModel', f'× 临界距离或最大邻接行数参数有误，请检查后重试！\n{e}')
-                self.gTextShowTop.textbox.showProcess(f'× 临界距离或最大邻接行数参数有误，请检查后重试！\n{e}\n')
+                showerror('GModel', f'× 临界距离有误，请检查后重试！\n{e}')
+                self.gTextShowTop.textbox.showProcess(f'× 临界距离有误，请检查后重试！\n{e}\n')
                 return
             self.gTextShowTop.textbox.showProcess(f'* 临界距离：{critical_distance}\n')
-            if max_line is not None:
-                self.gTextShowTop.textbox.showProcess(f'* 最大邻接行数：{max_line}\n')
-            self.gTextShowTop.textbox.showProcess('√ 正在生成邻接矩阵(每5000节点需要3-5分钟)...\n')
-            # data.edge_index = self.constructEdgeIndex(self.gTextShowTop.textbox, data.ini_points, critical_distance)
-            edge_index = []
-            num_points = len(data.ini_points)
-            for i in range(num_points):
-                for j in range(i + 1, num_points):
-                    if not self.gTextShowTop:
-                        return
-                    self.gTextShowTop.textbox.update()
-                    if max_line is not None:
-                        if j // data.col > i // data.col + max_line:
-                            break  # 停止内层循环
-                    x1, y1 = data.ini_points[i + 1]
-                    # label1 = int(data.y[i])
-                    x2, y2 = data.ini_points[j + 1]
-                    # label2 = int(data.y[j])
-                    distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-                    if distance <= critical_distance:
-                        edge_index.append([i, j])
-                        edge_index.append([j, i])
-            data.edge_index = tensor(edge_index, dtype=torchLong).t().contiguous()
-            # torch.save(data, 'data.pth')
+            self.gTextShowTop.textbox.showProcess('√ 正在生成邻接矩阵...\n')
+
+            def pairwise_distances(xypos):
+                # 计算欧氏距离矩阵，分别计算点之间欧氏距离的每一项再相加开方
+                set_printoptions(precision=10)
+                square_xy = sum(xypos ** 2, dim=1, keepdim=True)  # 计算x1**2+y1**2
+                distance_matrix = square_xy - 2 * mm(xypos, xypos.t()) + square_xy.t()  # 获得平方式
+                distance_matrix = sqrt(clamp(distance_matrix, 0.0, float('inf')))  # 开方，小于0的截断为0
+                return distance_matrix
+
+            xy = stack([data.xx, data.yy], dim=1)
+            edge_index0 = pairwise_distances(xy)
+            edge_index0 = edge_index0 <= critical_distance  # 相邻点的布尔矩阵
+            edge_index0 = nonzero(edge_index0)  # 获得布尔值非0的索引(行，列)
+            data.edge_index = edge_index0[
+                nonzero(edge_index0[:, 0] != edge_index0[:, 1]).squeeze(dim=1)].t().contiguous()
         else:
-            # showinfo('GModel', f'检测到邻接矩阵，将使用已有的邻接矩阵。')
             self.gTextShowTop.textbox.showProcess(f'* 检测到邻接矩阵，将使用已有的邻接矩阵。\n')
         # 设置模型
         self.gTextShowTop.textbox.showProcess('√ 正在设置模型...\n')
@@ -276,23 +274,18 @@ class GNNsButton(CustomButton):
             optimizer.zero_grad()  # 梯度清零
             x = model(data.x, data.edge_index)
             train_loss = criterion(x[data.train_mask], data.y[data.train_mask])  # 根据训练集进行优化
-            if abs(prev_train_loss - train_loss) < 0.01 or epoch == 0:
-                train_loss.backward()
-                optimizer.step()  # 更新模型参数
-                if train_loss < self.min_loss:  # 保存训练损失最低的一次的模型参数
-                    self.min_loss = train_loss
-                    self.bestModelState = model
-                    # print(self.bestModelState)
-            prev_train_loss = train_loss
+            # if abs(prev_train_loss - train_loss) < 0.01 or epoch == 0:
+            train_loss.backward()
+            optimizer.step()  # 更新模型参数
+            # prev_train_loss = train_loss
+            if train_loss < self.min_loss:  # 保存训练损失最低的一次的模型参数
+                self.min_loss = train_loss
+                self.bestModelState = model
             train_acc_training, _, _ = self.getAcc(model, data, data.train_mask)
             val_acc_training, _, _ = self.getAcc(model, data, data.val_mask)
             loss_history.append(train_loss.item())
             train_acc_history.append(train_acc_training.item())
             val_acc_history.append(val_acc_training.item())
-            # print(f'Epoch [{epoch + 1}/{num_epochs}], '
-            #       f'Train Loss: {train_loss.item():.4f}, '
-            #       f'Train Acc: {train_acc_training.item():.4f}, '
-            #       f'Test Acc: {val_acc_training.item():.4f}')
             self.gTextShowTop.textbox.showProcess(f'Epoch [{epoch + 1}/{num_epochs}], '
                                                   f'Train Loss: {train_loss.item():.4f}, '
                                                   f'Train Acc: {train_acc_training.item():.4f}, '

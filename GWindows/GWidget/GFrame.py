@@ -3,7 +3,7 @@ from tkinter import *
 from tkinter.ttk import *
 from Pmw import Balloon
 from GWindows.GWidget.GMenu import ContextMenu
-from GWindows.GWidget.GButton import AddDataButton, DivideDataButton, GCNButton, GATButton
+from GWindows.GWidget.GButton import AddDataButton, DivideDataButton1, DivideDataButton2, GCNButton, GATButton
 from GWindows.GWidget.GTreeView import MenuTreeView, DataShowTreeView
 from GWindows.GWidget.publicMember import PublicMember
 
@@ -15,7 +15,8 @@ class Frame0(Frame, PublicMember):
     def __init__(self, master, **kw):
         super().__init__(master, **kw)
         PublicMember().__init__()
-        self.divideDataButton = None
+        self.divideDataButton1 = None
+        self.divideDataButton2 = None
         self.gatButton = None
         self.addDataButton = None
         self.gcnButton = None
@@ -25,19 +26,22 @@ class Frame0(Frame, PublicMember):
 
     def setButton(self):
         self.addDataButton = AddDataButton(self)
-        self.divideDataButton = DivideDataButton(self)
+        self.divideDataButton1 = DivideDataButton1(self)
+        self.divideDataButton2 = DivideDataButton2(self)
         self.gcnButton = GCNButton(self)
         self.gatButton = GATButton(self)
         self.balloon.bind(self.addDataButton, '添加图数据(Excel)')
-        self.balloon.bind(self.divideDataButton, '划分数据集')
+        self.balloon.bind(self.divideDataButton1, '划分数据集')
+        self.balloon.bind(self.divideDataButton2, '导入训练区域')
         self.balloon.bind(self.gcnButton, 'GCN模型')
         self.balloon.bind(self.gatButton, 'GAT模型')
         Label(self, text='数\n据').place(relx=0, rely=0, relheight=1, relwidth=0.025)
         self.addDataButton.place(relx=0.025, rely=0, relheight=1, relwidth=0.05)
-        self.divideDataButton.place(relx=0.075, rely=0, relheight=1, relwidth=0.05)
-        Label(self, text='模\n型').place(relx=0.125, rely=0, relheight=1, relwidth=0.025)
-        self.gcnButton.place(relx=0.15, rely=0, relheight=1, relwidth=0.05)
-        self.gatButton.place(relx=0.2, rely=0, relheight=1, relwidth=0.05)
+        self.divideDataButton1.place(relx=0.075, rely=0, relheight=1, relwidth=0.05)
+        self.divideDataButton2.place(relx=0.125, rely=0, relheight=1, relwidth=0.05)
+        Label(self, text='模\n型').place(relx=0.175, rely=0, relheight=1, relwidth=0.025)
+        self.gcnButton.place(relx=0.2, rely=0, relheight=1, relwidth=0.05)
+        self.gatButton.place(relx=0.25, rely=0, relheight=1, relwidth=0.05)
 
 
 class ButtonFrame(Frame, PublicMember):
