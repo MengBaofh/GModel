@@ -158,7 +158,7 @@ class PublicMember:
         # plt.axis('equal')  # x\y轴间隔相同
         # plt.show()
 
-    def check_train_val_test(self, cType):
+    def check_train_val_test(self):
         try:
             dataFrame = self.loadedData[self.targetData]
         except KeyError:
@@ -173,15 +173,13 @@ class PublicMember:
                 if not askyesno('GModel',
                                 '检测到数据集已划分，是否重新划分数据集？\n（重新划分数据集后，需要重新生成邻接矩阵）'):
                     return
-        if cType == 1:
-            from GWindows.GWidget.GTopLevel import TypeSelectTop
-            self.topLevel = TypeSelectTop(self, '选择数据集划分方式',
-                                          ['横向划分', '纵向划分'],
-                                          ['GImage/horizontal.png', 'GImage/vertical.png'],
-                                          [lambda: self.init_train_val_test(dataFrame),
-                                           lambda: self.init_train_val_test(dataFrame, 1)])
-        else:
-            self.openFile('导入训练区域', [('训练区域文件', '*.xlsx')], self.importTrainVal)
+        from GWindows.GWidget.GTopLevel import TypeSelectTop
+        self.topLevel = TypeSelectTop(self, '选择数据集划分方式',
+                                      ['横向划分', '纵向划分', '自定义'],
+                                      ['GImage/horizontal.png', 'GImage/vertical.png', 'GImage/diy.png'],
+                                      [lambda: self.init_train_val_test(dataFrame),
+                                       lambda: self.init_train_val_test(dataFrame, 1),
+                                       lambda: self.init_train_val_test(dataFrame, 2)])
 
     def importTrainVal(self, f):
         train_data_df = self.dataLoader(f.name)
@@ -192,6 +190,7 @@ class PublicMember:
         feature = tensor(df.iloc[:, 3:-1].values, dtype=torchFloat)  # 特征值-中间列
         label = tensor(df.iloc[:, -1].values, dtype=torchLong)  # 分类标签-最后一列
         train_data_index0 = train_data_df.iloc[:, 0]  # 取出索引列
+        print(train_data_index0)
         train_data_index0 = train_data_index0.values  # 训练集索引
         train_data_index, val_data_index = sklearn.model_selection.train_test_split(train_data_index0,
                                                                                     test_size=0.2)  # 8:2选训练集和验证集
@@ -220,7 +219,6 @@ class PublicMember:
 
     def init_train_val_test(self, dataFrame, divideType=0):
         self.topLevel.destroy()
-        df_adj = dataFrame.iloc[:, 0:3]  # 用于构建邻接关系-前三列
         df_xx = dataFrame.iloc[:, 1]  # x坐标
         df_yy = dataFrame.iloc[:, 2]  # y坐标
         xxList = df_xx.tolist()
@@ -228,7 +226,6 @@ class PublicMember:
         df_x = dataFrame.iloc[:, 3:-1]
         df_y = dataFrame.iloc[:, -1]
         num_of_y = df_y.nunique()  # 标签种数（不包括空值）
-        # print(num_of_y)
         xx = tensor(df_xx.values, dtype=torchDouble)  # x坐标
         yy = tensor(df_yy.values, dtype=torchDouble)  # y坐标
         x = tensor(df_x.values, dtype=torchFloat)  # 特征值-中间列
@@ -236,10 +233,13 @@ class PublicMember:
         row = xxList.count(xxList[0])  # x相同时，y的个数 = 行数
         col = yyList.count(yyList[0])  # y相同时，x的个数 = 列数
         data = Data(x=x, y=y, xx=xx, yy=yy, row=row, col=col)
-        from GWindows.GWidget.GTopLevel import GraphSliderTop2
-        self.graphSliderTop2 = GraphSliderTop2(self, '数据集划分', '数据集可视化', 'X', 'Y', dataFrame, divideType,
-                                               row, col, '确定',
-                                               lambda: self.train_val_test(data, dataFrame, num_of_y, divideType))
+        if divideType != 2:
+            from GWindows.GWidget.GTopLevel import GraphSliderTop2
+            self.graphSliderTop2 = GraphSliderTop2(self, '数据集划分', '数据集可视化', 'X', 'Y', dataFrame, divideType,
+                                                   row, col, '确定',
+                                                   lambda: self.train_val_test(data, dataFrame, num_of_y, divideType))
+        else:
+            self.openFile('导入训练区域', [('训练区域文件', '*.xlsx')], self.importTrainVal)
 
     def train_val_test(self, data, dataFrame, num_of_y, divideType):
         # 划分数据集并保存到partitionedDataSets\partitionedDataFrames

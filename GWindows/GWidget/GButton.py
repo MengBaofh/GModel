@@ -78,22 +78,13 @@ class AddDataButton(CustomButton):
             self.master.master.getFrame()[1].getTreeView().updateText()
 
 
-class DivideDataButton1(CustomButton):
+class DivideDataButton(CustomButton):
     """
-    划分数据集1按钮
-    """
-
-    def __init__(self, master):
-        super().__init__(master, 'GImage/divideData.png', lambda: self.check_train_val_test(1))
-
-
-class DivideDataButton2(CustomButton):
-    """
-    划分数据集2按钮
+    划分数据集按钮
     """
 
     def __init__(self, master):
-        super().__init__(master, 'GImage/divideData.png', lambda: self.check_train_val_test(2))
+        super().__init__(master, 'GImage/divideData.png', self.check_train_val_test)
 
 
 class GNNsButton(CustomButton):

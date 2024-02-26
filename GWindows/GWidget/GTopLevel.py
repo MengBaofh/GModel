@@ -514,7 +514,6 @@ class TypeSelectTop(Toplevel, PublicMember):
         self.buttonPhotoPaths = buttonPhotoPaths  # 按钮显示的图片
         self.buttonFuncs = buttonFuncs  # 按钮执行功能
         self.num = len(self.labels)
-        # print(self.num)
         self.setGraphTextShowTop()
         self.setLabel()
         self.setButton()
@@ -528,13 +527,13 @@ class TypeSelectTop(Toplevel, PublicMember):
 
     def setLabel(self):
         for i, label in enumerate(self.labels):
-            Label(self, text=label).place(relx=(0.15 + 0.4 * i) * (self.num // 2),
-                                          rely=0.1, relwidth=0.3 * (self.num // 2),
+            Label(self, text=label).place(relx=(0.15 + 0.4 * i) * (2 / self.num),
+                                          rely=0.1, relwidth=0.3 * (2 / self.num),
                                           relheight=0.2)
 
     def setButton(self):
         from GWindows.GWidget.GButton import CustomButton
         for i, path in enumerate(self.buttonPhotoPaths):
-            CustomButton(self, path, self.buttonFuncs[i]).place(relx=(0.15 + 0.4 * i) * (self.num // 2),
-                                                                rely=0.3, relwidth=0.3 * (self.num // 2),
+            CustomButton(self, path, self.buttonFuncs[i]).place(relx=(0.15 + 0.4 * i) * (2 / self.num),
+                                                                rely=0.3, relwidth=0.3 * (2 / self.num),
                                                                 relheight=0.4)
